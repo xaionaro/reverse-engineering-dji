@@ -1,3 +1,91 @@
+# DJI DUML (DJI Unified Message Language) Comprehensive Reference
+
+This document provides a detailed mapping of DJI DUML (v4) protocol as implemented in `djictl` and researched in the `o-gs/dji-firmware-tools` community.
+
+## Protocol Structure (DUML v4)
+
+Packets have an 11-byte header, payload, and 2-byte CRC16.
+
+| Offset | Length | Name | Description |
+|--------|--------|------|-------------|
+| 0 | 1 | Magic | `0x55` |
+| 1 | 1 | Length | Total packet length |
+| 2 | 1 | Version/CRC | v4 uses `0x04` |
+| 3 | 1 | CRC8 | Header checksum (Poly 0x31, Init 0xEE) |
+| 4 | 1 | Source | Sender Component ID |
+| 5 | 1 | Destination | Receiver Component ID |
+| 6 | 2 | Sequence | Big Endian packet index |
+| 8 | 1 | Flags | Bitfield (Request/Response, Encryption) |
+| 9 | 1 | Cmd Set | Functional group |
+| 10 | 1 | Cmd ID | Specific command |
+| 11 | N | Payload | Data |
+| 11+N | 2 | CRC16 | Full packet checksum (Poly 0x1021, Init 0x496C) |
+
+## Component IDs (Addressing)
+
+| ID | Name | Description |
+|----|------|-------------|
+| 0x01 | Camera | Primary imaging unit |
+| 0x02 | App | Mobile app (MIMO, DJI Fly) |
+| 0x03 | Gimbal | Stabilization and orientation |
+| 0x04 | Flight Controller | Aircraft telemetry and control |
+| 0x05 | WiFi (Air) | Air-side wireless module |
+| 0x06 | Remote Controller | Physical RC-N1 or Smart Controller |
+| 0x07 | WiFi (Ground) | GS wireless module |
+| 0x08 | OFDM | Video transmission link |
+| 0x09 | Battery | Smart battery BMS |
+| 0x17 | Goggles | FPV Goggles V2 / Goggles 2 |
+
+## Command Set & ID Mapping
+
+### Set 0x00: General
+- **0x01**: Get Version
+- **0x0A**: Get Serial Number
+- **0xDE**: FCC Support (Trigger $1W$ mode)
+
+### Set 0x01: Special
+- **0x0D**: Get Product ID
+- **0x1E**: Get Firmware Version
+
+### Set 0x02: Camera
+- **0x01**: Take Photo
+- **0x02**: Start/Stop Record
+- **0x06**: Goggles Mode Toggle ($0=$ Normal, $1=$ USB/FPV)
+- **0x08**: Osmo Broadcast Config (RTMP Livestream)
+- **0x3C**: Video Subscribe
+- **0x8E**: Start/Stop Streaming State Machine
+- **0xE1**: Prepare to Livestream (Stage 1)
+
+### Set 0x03: Flight Controller
+- **0x01**: Get Flight Status
+- **0x02**: Get/Set Parameters
+- **0x29**: Joystick Command (Pitch/Roll/Yaw/Throttle)
+
+### Set 0x06: Remote Controller
+- **0x24**: Simulator Data (App -> RC)
+  - Sticks: 4 x `uint16` (364–1684)
+  - Buttons: `uint32`
+
+### Set 0x07: Wi-Fi
+- **0x07**: Get Camera AP SSID
+- **0x0E**: Get Camera AP PSK
+- **0x45**: Device Pairing (Set PIN / Get Status)
+- **0xAC**: WiFi Scan Report
+
+### Set 0x08: DM36X / Transcoder
+- **0x78**: Configure Streaming (Set Bitrate/FPS/URL)
+
+### Set 0x0D: Battery
+- **0x01**: Battery Static Info
+- **0x02**: Battery Dynamic Info (Voltage, Temp, Percentage)
+
+## Implementation Coverage
+
+The current Wireshark dissector (`dji-ble-message.c`) and `djictl` package implement:
+1. **DUML framing**: Displays CRC8 and CRC16 fields.
+2. **Addressing**: Identification of all major components.
+3. **Payload Dissection**: Detailed bit-level views for RC sticks, livestreaming URLs, battery health, and pairing protocols.
+
 # Examples
 
 ## `0x000280`
